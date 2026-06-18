@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Sistema de Auditoria de processos</title>
+  <style>
+    /* Estilos Profissionais */
+    :root {
+      --primary: #0f172a;
+      --secondary: #1e293b;
+      --accent: #3b82f6;
+      --background: #f1f5f9;
+      --text: #334155;
+      --danger: #ef4444;
+      --success: #10b981;
+      --card-bg: #ffffff;
+    }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background-color: var(--background);
+      color: var(--text);
+      margin: 0;
+      padding: 0;
+    }
+    
+    /* Telas */
+    #tela-login, #tela-app { display: none; }
+    
+    /* Login PRO */
+    .login-container {
+      display: flex;
+      height: 100vh;
+      justify-content: center;
+      align-items: center;
+      background: var(--primary);
+    }
+    .login-box {
+      background: var(--card-bg);
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      width: 100%;
+      max-width: 350px;
+      text-align: center;
+    }
+    .login-box h2 { color: var(--primary); margin-top: 0; }
+    
+    /* Navbar */
+    .navbar {
+      background-color: var(--primary);
+      color: white;
+      padding: 15px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .nav-user { display: flex; align-items: center; gap: 15px; }
+    .badge-admin {
+      background: var(--accent);
+      color: white;
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-weight: bold;
+    }
+    
+    /* Content */
+    .content { padding: 20px; }
+    .section-title { color: var(--secondary); border-bottom: 2px solid #cbd5e1; padding-bottom: 10px; margin-bottom: 20px; }
+
+    /* Grid dos Quadradinhos */
+    .grid-departamentos {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 20px;
+    }
+    .card-dep {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 30px 15px;
+      text-align: center;
+      font-size: 1.1rem;
+      font-weight: 600;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+      cursor: pointer;
+      transition: all 0.2s;
+      border-top: 5px solid var(--accent);
+    }
+    .card-dep:active { transform: scale(0.95); }
+    .card-dep:hover { box-shadow: 0 10px 15px rgba(0,0,0,0.1); }
+
+    /* Formulários e Botões */
+    input, select, textarea {
+      width: 100%; padding: 12px; margin: 8px 0 15px;
+      border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box;
+      font-size: 1rem;
+    }
+    .btn {
+      padding: 12px 15px; border: none; border-radius: 6px;
+      font-size: 1rem; color: white; cursor: pointer; font-weight: bold; width: 100%; transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.9; }
+    .btn-primary { background-color: var(--accent); }
+    .btn-danger { background-color: var(--danger); }
+    .btn-success { background-color: var(--success); }
+    .btn-outline { background-color: transparent; border: 2px solid var(--accent); color: var(--accent); }
+    .btn-group { display: flex; gap: 10px; margin-top: 10px; }
+
+    /* Modais */
+    .modal {
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(15, 23, 42, 0.7); justify-content: center; align-items: center; z-index: 1000;
+      padding: 20px; box-sizing: border-box;
+    }
+    .modal-content {
+      background: var(--card-bg); padding: 25px; border-radius: 10px; width: 100%;
+      max-width: 500px; max-height: 85vh; overflow-y: auto; position: relative;
+    }
+    .close-btn { position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--danger); }
+    
+    /* Listas (Arquivos, Usuários, Deptos) */
+    .list-group { list-style: none; padding: 0; margin: 0; }
+    .list-group li {
+      background: var(--background); margin-bottom: 8px; padding: 12px;
+      border-radius: 6px; display: flex; justify-content: space-between; align-items: center;
+    }
+    .action-icon { cursor: pointer; color: var(--danger); font-weight: bold; background: none; border: none; font-size: 1.1rem; }
+    
+    /* Admin Painel Tabs */
+    .admin-section { background: var(--background); padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+
+  <!-- ================= TELA DE LOGIN ================= -->
+  <div id="tela-login" class="login-container" style="display: flex;">
+    <div class="login-box">
+      <h2>auditoria de processos internos</h2>
+      <p>Acesse o sistema</p>
+      <input type="text" id="login-user" placeholder="Usuário">
+      <input type="password" id="login-pass" placeholder="Senha">
+      <button class="btn btn-primary" onclick="fazerLogin()">Entrar</button>
+      <p id="login-msg" style="color: var(--danger); font-size: 0.9rem; margin-top: 10px;"></p>
+    </div>
+  </div>
+
+  <!-- ================= TELA PRINCIPAL (APP) ================= -->
+  <div id="tela-app">
+    <!-- Navbar -->
+    <div class="navbar">
+      <div class="nav-user">
+        <strong id="user-display-name">Usuário</strong>
+        <span id="badge-admin" class="badge-admin" style="display: none;">ADMIN</span>
+      </div>
+      <div>
+        <button id="btn-abrir-admin" class="btn btn-outline" style="display: none; padding: 6px 12px; width: auto; margin-right: 10px;" onclick="abrirPainelAdmin()">⚙️ Painel Admin</button>
+        <button class="btn btn-danger" style="padding: 6px 12px; width: auto;" onclick="sair()">Sair</button>
+      </div>
+    </div>
+
+    <!-- Conteúdo -->
+    <div class="content">
+      <h2 class="section-title">Departamentos</h2>
+      <div class="grid-departamentos" id="departamentos-container">
+        <!-- Renderizado via JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL DEPARTAMENTO (AUDITORIA E P.O.P.S) ================= -->
+  <div class="modal" id="modal-departamento">
+    <div class="modal-content">
+      <button class="close-btn" onclick="fecharModal('modal-departamento')">✖</button>
+      <h2 id="modal-dep-titulo" style="margin-top: 0; color: var(--primary);">Departamento</h2>
+      
+      <!-- Lista de P.O.P.s -->
+      <h3 style="font-size: 1.1rem; border-bottom: 1px solid #ccc; padding-bottom: 5px;">Documentos e P.O.P.s</h3>
+      <ul class="list-group" id="lista-arquivos"></ul>
+      
+      <!-- Área Restrita: Adicionar Arquivo (Só Admin) -->
+      <div id="area-add-arquivo" style="display: none; background: #e2e8f0; padding: 10px; border-radius: 6px; margin-top: 10px;">
+        <strong>➕ Adicionar P.O.P</strong>
+        <input type="text" id="novo-arq-nome" placeholder="Nome do Documento (Ex: P.O.P Caixa)">
+        <input type="text" id="novo-arq-link" placeholder="Link do arquivo (Drive, Storage, etc)">
+        <button class="btn btn-success" style="padding: 8px;" onclick="adicionarArquivo()">Salvar Arquivo</button>
+      </div>
+
+      <h3 style="font-size: 1.1rem; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 25px;">Gerar Atividade de Auditoria</h3>
+      <input type="text" id="loja-auditada" placeholder="Nome da Loja (Ex: Loja Centro)">
+      <textarea id="desc-nao-conformidade" rows="3" placeholder="Descreva a não conformidade encontrada..."></textarea>
+      <select id="pop-selecionado"></select>
+
+      <div class="btn-group">
+        <button class="btn" style="background-color: #25D366;" onclick="enviarDemanda('whatsapp')">WhatsApp</button>
+        <button class="btn btn-primary" onclick="enviarDemanda('email')">E-mail</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL PAINEL ADMIN (SÓ PARA ADMINS) ================= -->
+  <div class="modal" id="modal-admin">
+    <div class="modal-content">
+      <button class="close-btn" onclick="fecharModal('modal-admin')">✖</button>
+      <h2 style="margin-top: 0; color: var(--primary);">⚙️ Painel do Administrador</h2>
+      
+      <!-- Gerenciar Departamentos -->
+      <div class="admin-section">
+        <h3>Departamentos</h3>
+        <ul class="list-group" id="lista-admin-deps" style="margin-bottom: 10px; max-height: 150px; overflow-y: auto;"></ul>
+        <input type="text" id="novo-dep-nome" placeholder="Novo Departamento (Ex: Frios)">
+        <button class="btn btn-primary" style="padding: 8px;" onclick="addDepartamento()">Adicionar Departamento</button>
+      </div>
+
+      <!-- Gerenciar Usuários -->
+      <div class="admin-section">
+        <h3>Usuários do Sistema</h3>
+        <ul class="list-group" id="lista-admin-users" style="margin-bottom: 10px; max-height: 150px; overflow-y: auto;"></ul>
+        <input type="text" id="novo-user-login" placeholder="Usuário (Ex: joao.silva)">
+        <input type="password" id="novo-user-pass" placeholder="Senha">
+        <select id="novo-user-role">
+          <option value="comum">Usuário Comum (Auditor)</option>
+          <option value="admin">Administrador (Total Acesso)</option>
+        </select>
+        <button class="btn btn-success" style="padding: 8px;" onclick="addUsuario()">Cadastrar Usuário</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FIREBASE SCRIPTS -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase, ref, set, get, child, onValue, push, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDMgocHaQtH07v-aQc4tC4JcV3jNxY3tX0",
+      authDomain: "controle-armarios-14351.firebaseapp.com",
+      databaseURL: "https://controle-armarios-14351-default-rtdb.firebaseio.com",
+      projectId: "controle-armarios-14351",
+      storageBucket: "controle-armarios-14351.firebasestorage.app",
+      messagingSenderId: "171871598145",
+      appId: "1:171871598145:web:7de01c425b0875907838c0"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // Variáveis Globais de Estado
+    let usuarioLogado = null;
+    let dbDepartamentos = {};
+    let dbUsuarios = {};
+    let idDepartamentoAtual = ""; // Guarda o ID interno do departamento aberto
+
+    // ==========================================
+    // 1. SISTEMA DE LOGIN E INICIALIZAÇÃO
+    // ==========================================
+    
+    // Cria o usuário "au.costa" caso o banco esteja zerado
+    async function inicializarBanco() {
+      const dbRef = ref(db);
+      const snap = await get(child(dbRef, 'usuarios/au_costa'));
+      if (!snap.exists()) {
+        await set(ref(db, 'usuarios/au_costa'), { nome: "A. Costa", senha: "admin", role: "admin" });
+        console.log("Usuário Mestre au.costa criado com sucesso. Senha: admin");
+      }
+    }
+    inicializarBanco();
+
+    window.fazerLogin = async function() {
+      const user = document.getElementById("login-user").value.trim().toLowerCase();
+      const pass = document.getElementById("login-pass").value.trim();
+      const msg = document.getElementById("login-msg");
+      
+      if(!user || !pass) { msg.innerText = "Preencha tudo!"; return; }
+      msg.innerText = "Autenticando...";
+
+      // O Firebase RTDB não aceita pontos na chave, então convertemos "au.costa" para "au_costa" internamente
+      const userKey = user.replace(/\./g, '_'); 
+
+      const dbRef = ref(db);
+      const snapshot = await get(child(dbRef, `usuarios/${userKey}`));
+      
+      if (snapshot.exists() && snapshot.val().senha === pass) {
+        usuarioLogado = snapshot.val();
+        usuarioLogado.id = userKey;
+        usuarioLogado.loginExibicao = user;
+        
+        iniciarInterfaceApp();
+      } else {
+        msg.innerText = "Usuário ou senha incorretos!";
+      }
+    };
+
+    window.sair = function() {
+      usuarioLogado = null;
+      document.getElementById("tela-app").style.display = "none";
+      document.getElementById("tela-login").style.display = "flex";
+      document.getElementById("login-pass").value = "";
+      document.getElementById("login-msg").innerText = "";
+    };
+
+    function iniciarInterfaceApp() {
+      document.getElementById("tela-login").style.display = "none";
+      document.getElementById("tela-app").style.display = "block";
+      document.getElementById("user-display-name").innerText = usuarioLogado.loginExibicao;
+      
+      // Controles de Admin
+      if (usuarioLogado.role === 'admin') {
+        document.getElementById("badge-admin").style.display = "inline-block";
+        document.getElementById("btn-abrir-admin").style.display = "inline-block";
+        document.getElementById("area-add-arquivo").style.display = "block";
+      } else {
+        document.getElementById("badge-admin").style.display = "none";
+        document.getElementById("btn-abrir-admin").style.display = "none";
+        document.getElementById("area-add-arquivo").style.display = "none";
+      }
+
+      // Escutar dados do banco em tempo real
+      onValue(ref(db, 'departamentos'), (snapshot) => {
+        dbDepartamentos = snapshot.val() || {};
+        renderizarDepartamentos();
+      });
+
+      // Se for admin, escutar os usuários para gerenciar
+      if(usuarioLogado.role === 'admin'){
+        onValue(ref(db, 'usuarios'), (snapshot) => {
+          dbUsuarios = snapshot.val() || {};
+          renderizarListaAdmin();
+        });
+      }
+    }
+
+    // ==========================================
+    // 2. RENDERIZAÇÃO DO PAINEL PRINCIPAL
+    // ==========================================
+    function renderizarDepartamentos() {
+      const container = document.getElementById("departamentos-container");
+      container.innerHTML = "";
+      for (const id in dbDepartamentos) {
+        const dep = dbDepartamentos[id];
+        const card = document.createElement("div");
+        card.className = "card-dep";
+        card.innerText = dep.nome;
+        card.onclick = () => abrirDepartamento(id, dep);
+        container.appendChild(card);
+      }
+    }
+
+    // ==========================================
+    // 3. GESTÃO DE DEPARTAMENTOS E ARQUIVOS (P.O.P)
+    // ==========================================
+    window.abrirDepartamento = function(id, dep) {
+      idDepartamentoAtual = id;
+      document.getElementById("modal-dep-titulo").innerText = dep.nome;
+      document.getElementById("modal-departamento").style.display = "flex";
+      
+      const lista = document.getElementById("lista-arquivos");
+      const selectPop = document.getElementById("pop-selecionado");
+      lista.innerHTML = "";
+      selectPop.innerHTML = '<option value="Nenhum">Selecione o documento de referência</option>';
+
+      if (dep.arquivos) {
+        for (const fileId in dep.arquivos) {
+          const arq = dep.arquivos[fileId];
+          
+          // Renderiza Lista Visual
+          const li = document.createElement("li");
+          let html = `<span>📄 <a href="${arq.link}" target="_blank" style="text-decoration:none; color:var(--accent); font-weight:bold;">${arq.nome}</a></span>`;
+          
+          // Se for admin, adiciona botão de excluir
+          if (usuarioLogado.role === 'admin') {
+            html += `<button class="action-icon" onclick="deletarArquivo('${id}', '${fileId}')">🗑️</button>`;
+          }
+          li.innerHTML = html;
+          lista.appendChild(li);
+
+          // Renderiza no Select da Auditoria
+          const option = document.createElement("option");
+          option.value = arq.nome;
+          option.innerText = arq.nome;
+          selectPop.appendChild(option);
+        }
+      } else {
+        lista.innerHTML = "<li><small>Nenhum documento cadastrado.</small></li>";
+      }
+    };
+
+    window.adicionarArquivo = function() {
+      const nome = document.getElementById("novo-arq-nome").value;
+      const link = document.getElementById("novo-arq-link").value;
+      if(!nome || !link) { alert("Preencha o nome e o link!"); return; }
+
+      const arquivosRef = ref(db, `departamentos/${idDepartamentoAtual}/arquivos`);
+      push(arquivosRef, { nome: nome, link: link }).then(() => {
+        document.getElementById("novo-arq-nome").value = "";
+        document.getElementById("novo-arq-link").value = "";
+        fecharModal('modal-departamento'); // Fecha e o usuário reabre pra ver (ou vc pode atualizar dinâmico)
+        alert("P.O.P adicionado com sucesso!");
+      });
+    };
+
+    window.deletarArquivo = function(idDep, idFile) {
+      if(confirm("Tem certeza que deseja excluir este P.O.P?")) {
+        remove(ref(db, `departamentos/${idDep}/arquivos/${idFile}`));
+        fecharModal('modal-departamento');
+      }
+    };
+
+    // ==========================================
+    // 4. PAINEL DE ADMINISTRAÇÃO GERAL
+    // ==========================================
+    window.abrirPainelAdmin = function() {
+      document.getElementById("modal-admin").style.display = "flex";
+      renderizarListaAdmin();
+    };
+
+    function renderizarListaAdmin() {
+      // Lista de Departamentos
+      const listaDeps = document.getElementById("lista-admin-deps");
+      listaDeps.innerHTML = "";
+      for (const id in dbDepartamentos) {
+        listaDeps.innerHTML += `<li>${dbDepartamentos[id].nome} <button class="action-icon" onclick="deletarDep('${id}')">🗑️</button></li>`;
+      }
+
+      // Lista de Usuários
+      const listaUsers = document.getElementById("lista-admin-users");
+      listaUsers.innerHTML = "";
+      for (const id in dbUsuarios) {
+        const u = dbUsuarios[id];
+        const papel = u.role === 'admin' ? '<span style="color:var(--danger);font-size:0.8rem">ADMIN</span>' : 'COMUM';
+        // Impede de deletar o proprio usuario logado
+        const btnDel = id === usuarioLogado.id ? '' : `<button class="action-icon" onclick="deletarUser('${id}')">🗑️</button>`;
+        listaUsers.innerHTML += `<li>${id.replace('_', '.')} (${papel}) ${btnDel}</li>`;
+      }
+    }
+
+    window.addDepartamento = function() {
+      const nome = document.getElementById("novo-dep-nome").value;
+      if(!nome) return;
+      const key = nome.toLowerCase().replace(/ /g, '_');
+      set(ref(db, `departamentos/${key}`), { nome: nome }).then(() => {
+        document.getElementById("novo-dep-nome").value = "";
+      });
+    };
+
+    window.deletarDep = function(id) {
+      if(confirm("Excluir departamento inteiro e todos os seus arquivos?")) {
+        remove(ref(db, `departamentos/${id}`));
+      }
+    };
+
+    window.addUsuario = function() {
+      const login = document.getElementById("novo-user-login").value.trim().toLowerCase();
+      const pass = document.getElementById("novo-user-pass").value;
+      const role = document.getElementById("novo-user-role").value;
+      
+      if(!login || !pass) { alert("Preencha login e senha!"); return; }
+      
+      const userKey = login.replace(/\./g, '_');
+      set(ref(db, `usuarios/${userKey}`), { senha: pass, role: role }).then(() => {
+        alert("Usuário criado!");
+        document.getElementById("novo-user-login").value = "";
+        document.getElementById("novo-user-pass").value = "";
+      });
+    };
+
+    window.deletarUser = function(id) {
+      if(confirm("Excluir acesso deste usuário?")) {
+        remove(ref(db, `usuarios/${id}`));
+      }
+    };
+
+    // ==========================================
+    // 5. UTILITÁRIOS E GERADOR DE DEMANDAS
+    // ==========================================
+    window.fecharModal = function(id) {
+      document.getElementById(id).style.display = "none";
+    };
+
+    window.enviarDemanda = function(metodo) {
+      const loja = document.getElementById("loja-auditada").value;
+      const descricao = document.getElementById("desc-nao-conformidade").value;
+      const pop = document.getElementById("pop-selecionado").value;
+      const depNome = dbDepartamentos[idDepartamentoAtual].nome;
+
+      if (!loja || !descricao) { alert("Preencha a loja e a descrição!"); return; }
+
+      // Salva no BD a auditoria
+      push(ref(db, 'auditorias'), {
+        auditor: usuarioLogado.loginExibicao,
+        departamento: depNome,
+        loja: loja,
+        descricao: descricao,
+        pop_referencia: pop,
+        data: new Date().toISOString()
+      });
+
+      const msg = `🚨 *auditoria de processos*\n*Loja:* ${loja}\n*Dep:* ${depNome}\n*Auditor:* ${usuarioLogado.loginExibicao}\n\n*Não Conformidade:*\n${descricao}\n\n*P.O.P de Referência:* ${pop}`;
+
+      if (metodo === 'whatsapp') {
+        window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+      } else {
+        window.location.href = `mailto:?subject=Auditoria ${loja} - ${depNome}&body=${encodeURIComponent(msg)}`;
+      }
+      fecharModal('modal-departamento');
+    };
+  </script>
+</body>
+</html>

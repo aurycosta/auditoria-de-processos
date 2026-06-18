@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Sistema de Auditoria de processos</title>
+  <title>Sistema de Auditoria e Processos</title>
   <style>
     /* Estilos Profissionais */
     :root {
@@ -140,7 +140,7 @@
   <!-- ================= TELA DE LOGIN ================= -->
   <div id="tela-login" class="login-container" style="display: flex;">
     <div class="login-box">
-      <h2>auditoria de processos internos</h2>
+      <h2>Auditoria de Processos</h2>
       <p>Acesse o sistema</p>
       <input type="text" id="login-user" placeholder="Usuário">
       <input type="password" id="login-pass" placeholder="Senha">
@@ -190,21 +190,26 @@
         <button class="btn btn-success" style="padding: 8px;" onclick="adicionarArquivo()">Salvar Arquivo</button>
       </div>
 
-      <h3 style="font-size: 1.1rem; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 25px;">Gerar Atividade de Auditoria</h3>
-      
-      <input type="text" id="loja-auditada" placeholder="Nome da Loja (Ex: Loja 05)">
-      
-      <textarea id="desc-nao-conformidade" rows="3" placeholder="Descreva a não conformidade encontrada..."></textarea>
-      
-      <label style="font-weight: 600; font-size: 0.9rem; color: var(--text);">Vincular P.O.P:</label>
-      <select id="pop-selecionado"></select>
+      <!-- Área Restrita: Geração de Demandas (Oculta para Leitores) -->
+      <div id="area-auditoria">
+        <h3 style="font-size: 1.1rem; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 25px;">Gerar Atividade de Auditoria</h3>
+        
+        <input type="text" id="loja-auditada" placeholder="Nome da Loja (Ex: Loja 05)">
+        
+        <textarea id="desc-nao-conformidade" rows="3" placeholder="Descreva a não conformidade encontrada..."></textarea>
+        
+        <label style="font-weight: 600; font-size: 0.9rem; color: var(--text);">Vincular P.O.P:</label>
+        <select id="pop-selecionado"></select>
 
-      <div id="loading-msg">Processando e abrindo aplicativo... ⏳</div>
+        <div id="loading-msg">Processando e abrindo aplicativo... ⏳</div>
 
-      <div class="btn-group" id="botoes-envio">
-        <button class="btn" style="background-color: #25D366;" onclick="enviarDemanda('whatsapp')">WhatsApp</button>
-        <button class="btn btn-primary" onclick="enviarDemanda('email')">E-mail</button>
+        <div class="btn-group" id="botoes-envio">
+          <button class="btn" style="background-color: #25D366;" onclick="enviarDemanda('whatsapp')">WhatsApp</button>
+          <button class="btn btn-primary" onclick="enviarDemanda('email')">E-mail</button>
+        </div>
       </div>
+      <!-- Fim da Área de Auditoria -->
+
     </div>
   </div>
 
@@ -229,7 +234,8 @@
         <input type="text" id="novo-user-login" placeholder="Usuário (Ex: joao.silva)">
         <input type="password" id="novo-user-pass" placeholder="Senha">
         <select id="novo-user-role">
-          <option value="comum">Usuário Comum (Auditor)</option>
+          <option value="leitor">Usuário Leitor (Apenas visualização)</option>
+          <option value="comum">Usuário Auditor (Gera demandas)</option>
           <option value="admin">Administrador (Total Acesso)</option>
         </select>
         <button class="btn btn-success" style="padding: 8px;" onclick="addUsuario()">Cadastrar Usuário</button>
@@ -255,7 +261,6 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // Variáveis Globais de Estado
     let usuarioLogado = null;
     let dbDepartamentos = {};
     let dbUsuarios = {};
@@ -386,6 +391,13 @@
       document.getElementById("modal-dep-titulo").innerText = dep.nome;
       document.getElementById("modal-departamento").style.display = "flex";
       
+      // Bloqueio do painel de Auditoria para quem é só "leitor"
+      if (usuarioLogado.role === 'leitor') {
+        document.getElementById("area-auditoria").style.display = "none";
+      } else {
+        document.getElementById("area-auditoria").style.display = "block";
+      }
+
       document.getElementById("loja-auditada").value = "";
       document.getElementById("desc-nao-conformidade").value = "";
       
@@ -457,9 +469,14 @@
       listaUsers.innerHTML = "";
       for (const id in dbUsuarios) {
         const u = dbUsuarios[id];
-        const papel = u.role === 'admin' ? '<span style="color:var(--danger);font-size:0.8rem">ADMIN</span>' : 'COMUM';
+        
+        let badgePapel = '';
+        if (u.role === 'admin') badgePapel = '<span style="color:var(--danger);font-size:0.8rem;font-weight:bold;">ADMIN</span>';
+        else if (u.role === 'comum') badgePapel = '<span style="color:var(--accent);font-size:0.8rem;font-weight:bold;">AUDITOR</span>';
+        else badgePapel = '<span style="color:var(--text);font-size:0.8rem;font-weight:bold;">LEITOR</span>';
+        
         const btnDel = id === usuarioLogado.id ? '' : `<button class="action-icon" onclick="deletarUser('${id}')">🗑️</button>`;
-        listaUsers.innerHTML += `<li>${id.replace('_', '.')} (${papel}) ${btnDel}</li>`;
+        listaUsers.innerHTML += `<li>${id.replace('_', '.')} (${badgePapel}) ${btnDel}</li>`;
       }
     }
 
@@ -487,7 +504,7 @@
       
       const userKey = login.replace(/\./g, '_');
       set(dbRef(db, `usuarios/${userKey}`), { senha: pass, role: role }).then(() => {
-        alert("Usuário criado!");
+        alert("Usuário criado com sucesso!");
         document.getElementById("novo-user-login").value = "";
         document.getElementById("novo-user-pass").value = "";
       });
@@ -520,10 +537,8 @@
       document.getElementById("botoes-envio").style.display = "none";
       document.getElementById("loading-msg").style.display = "block";
 
-      // Captura da data no formato brasileiro (DD/MM/YYYY)
       const dataAtual = new Date().toLocaleDateString('pt-BR');
 
-      // Salva no Banco de Dados Realtime o registro de texto padrão (Leve)
       push(dbRef(db, 'auditorias'), {
         data: dataAtual,
         auditor: usuarioLogado.loginExibicao,
@@ -534,7 +549,6 @@
         pop_link: popLink || ""
       });
 
-      // Montando a mensagem perfeita com Data e Links diretos dos POPs
       let msg = `🚨 *AUDITORIA DE PROCESSOS*\n`;
       msg += `*Data:* ${dataAtual}\n`;
       msg += `*Loja:* ${loja}\n`;
@@ -549,14 +563,12 @@
         }
       }
 
-      // Disparo instantâneo sem peso
       if (metodo === 'whatsapp') {
         window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
       } else {
         window.location.href = `mailto:?subject=Auditoria ${loja} - ${depNome}&body=${encodeURIComponent(msg)}`;
       }
 
-      // Restaura o modal de forma limpa
       document.getElementById("botoes-envio").style.display = "flex";
       document.getElementById("loading-msg").style.display = "none";
       fecharModal('modal-departamento');

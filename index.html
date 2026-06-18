@@ -130,6 +130,9 @@
     
     /* Admin Painel Tabs */
     .admin-section { background: var(--background); padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+    
+    /* Loader/Aviso */
+    #loading-msg { display: none; color: var(--accent); font-weight: bold; text-align: center; margin-top: 10px; }
   </style>
 </head>
 <body>
@@ -137,7 +140,7 @@
   <!-- ================= TELA DE LOGIN ================= -->
   <div id="tela-login" class="login-container" style="display: flex;">
     <div class="login-box">
-      <h2>auditoria de processos internos</h2>
+      <h2>Auditoria de Processos</h2>
       <p>Acesse o sistema</p>
       <input type="text" id="login-user" placeholder="Usuário">
       <input type="password" id="login-pass" placeholder="Senha">
@@ -188,11 +191,21 @@
       </div>
 
       <h3 style="font-size: 1.1rem; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 25px;">Gerar Atividade de Auditoria</h3>
-      <input type="text" id="loja-auditada" placeholder="Nome da Loja (Ex: Loja Centro)">
+      
+      <input type="text" id="loja-auditada" placeholder="Nome da Loja (Ex: Loja 05)">
+      
       <textarea id="desc-nao-conformidade" rows="3" placeholder="Descreva a não conformidade encontrada..."></textarea>
+      
+      <label style="font-weight: 600; font-size: 0.9rem; color: var(--text);">Vincular P.O.P:</label>
       <select id="pop-selecionado"></select>
 
-      <div class="btn-group">
+      <label style="font-weight: 600; font-size: 0.9rem; color: var(--text); display: block; margin-top: 5px;">📸 Evidência (Foto opcional):</label>
+      <!-- "capture=environment" faz o tablet abrir a câmera traseira direto, se compatível -->
+      <input type="file" id="foto-evidencia" accept="image/*" capture="environment" style="padding: 8px;">
+
+      <div id="loading-msg">Anexando foto e gerando auditoria. Aguarde... ⏳</div>
+
+      <div class="btn-group" id="botoes-envio">
         <button class="btn" style="background-color: #25D366;" onclick="enviarDemanda('whatsapp')">WhatsApp</button>
         <button class="btn btn-primary" onclick="enviarDemanda('email')">E-mail</button>
       </div>
@@ -231,7 +244,10 @@
   <!-- FIREBASE SCRIPTS -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getDatabase, ref, set, get, child, onValue, push, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+    // Banco de Dados
+    import { getDatabase, ref as dbRef, set, get, child, onValue, push, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+    // Armazenamento de Arquivos (Fotos)
+    import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDMgocHaQtH07v-aQc4tC4JcV3jNxY3tX0",
@@ -245,24 +261,22 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
+    const storage = getStorage(app); // Inicializando Storage
 
     // Variáveis Globais de Estado
     let usuarioLogado = null;
     let dbDepartamentos = {};
     let dbUsuarios = {};
-    let idDepartamentoAtual = ""; // Guarda o ID interno do departamento aberto
+    let idDepartamentoAtual = ""; 
 
     // ==========================================
     // 1. SISTEMA DE LOGIN E INICIALIZAÇÃO
     // ==========================================
-    
-    // Cria o usuário "au.costa" caso o banco esteja zerado
     async function inicializarBanco() {
-      const dbRef = ref(db);
-      const snap = await get(child(dbRef, 'usuarios/au_costa'));
+      const dbReference = dbRef(db);
+      const snap = await get(child(dbReference, 'usuarios/au_costa'));
       if (!snap.exists()) {
-        await set(ref(db, 'usuarios/au_costa'), { nome: "A. Costa", senha: "admin", role: "admin" });
-        console.log("Usuário Mestre au.costa criado com sucesso. Senha: admin");
+        await set(dbRef(db, 'usuarios/au_costa'), { nome: "A. Costa", senha: "admin", role: "admin" });
       }
     }
     inicializarBanco();
@@ -275,11 +289,10 @@
       if(!user || !pass) { msg.innerText = "Preencha tudo!"; return; }
       msg.innerText = "Autenticando...";
 
-      // O Firebase RTDB não aceita pontos na chave, então convertemos "au.costa" para "au_costa" internamente
       const userKey = user.replace(/\./g, '_'); 
 
-      const dbRef = ref(db);
-      const snapshot = await get(child(dbRef, `usuarios/${userKey}`));
+      const dbReference = dbRef(db);
+      const snapshot = await get(child(dbReference, `usuarios/${userKey}`));
       
       if (snapshot.exists() && snapshot.val().senha === pass) {
         usuarioLogado = snapshot.val();
@@ -305,7 +318,6 @@
       document.getElementById("tela-app").style.display = "block";
       document.getElementById("user-display-name").innerText = usuarioLogado.loginExibicao;
       
-      // Controles de Admin
       if (usuarioLogado.role === 'admin') {
         document.getElementById("badge-admin").style.display = "inline-block";
         document.getElementById("btn-abrir-admin").style.display = "inline-block";
@@ -316,15 +328,13 @@
         document.getElementById("area-add-arquivo").style.display = "none";
       }
 
-      // Escutar dados do banco em tempo real
-      onValue(ref(db, 'departamentos'), (snapshot) => {
+      onValue(dbRef(db, 'departamentos'), (snapshot) => {
         dbDepartamentos = snapshot.val() || {};
         renderizarDepartamentos();
       });
 
-      // Se for admin, escutar os usuários para gerenciar
       if(usuarioLogado.role === 'admin'){
-        onValue(ref(db, 'usuarios'), (snapshot) => {
+        onValue(dbRef(db, 'usuarios'), (snapshot) => {
           dbUsuarios = snapshot.val() || {};
           renderizarListaAdmin();
         });
@@ -348,37 +358,40 @@
     }
 
     // ==========================================
-    // 3. GESTÃO DE DEPARTAMENTOS E ARQUIVOS (P.O.P)
+    // 3. GESTÃO DE DEPARTAMENTOS E ARQUIVOS
     // ==========================================
     window.abrirDepartamento = function(id, dep) {
       idDepartamentoAtual = id;
       document.getElementById("modal-dep-titulo").innerText = dep.nome;
       document.getElementById("modal-departamento").style.display = "flex";
       
+      // Limpar campos de formulário e fotos antigas ao abrir
+      document.getElementById("loja-auditada").value = "";
+      document.getElementById("desc-nao-conformidade").value = "";
+      document.getElementById("foto-evidencia").value = "";
+      
       const lista = document.getElementById("lista-arquivos");
       const selectPop = document.getElementById("pop-selecionado");
       lista.innerHTML = "";
-      selectPop.innerHTML = '<option value="Nenhum">Selecione o documento de referência</option>';
+      selectPop.innerHTML = '<option value="Nenhum" data-link="">Selecione o documento de referência</option>';
 
       if (dep.arquivos) {
         for (const fileId in dep.arquivos) {
           const arq = dep.arquivos[fileId];
           
-          // Renderiza Lista Visual
           const li = document.createElement("li");
           let html = `<span>📄 <a href="${arq.link}" target="_blank" style="text-decoration:none; color:var(--accent); font-weight:bold;">${arq.nome}</a></span>`;
-          
-          // Se for admin, adiciona botão de excluir
           if (usuarioLogado.role === 'admin') {
             html += `<button class="action-icon" onclick="deletarArquivo('${id}', '${fileId}')">🗑️</button>`;
           }
           li.innerHTML = html;
           lista.appendChild(li);
 
-          // Renderiza no Select da Auditoria
+          // Criando a opção com o Link guardado nela (data-link)
           const option = document.createElement("option");
           option.value = arq.nome;
           option.innerText = arq.nome;
+          option.setAttribute('data-link', arq.link); // Salvando o link!
           selectPop.appendChild(option);
         }
       } else {
@@ -391,18 +404,18 @@
       const link = document.getElementById("novo-arq-link").value;
       if(!nome || !link) { alert("Preencha o nome e o link!"); return; }
 
-      const arquivosRef = ref(db, `departamentos/${idDepartamentoAtual}/arquivos`);
+      const arquivosRef = dbRef(db, `departamentos/${idDepartamentoAtual}/arquivos`);
       push(arquivosRef, { nome: nome, link: link }).then(() => {
         document.getElementById("novo-arq-nome").value = "";
         document.getElementById("novo-arq-link").value = "";
-        fecharModal('modal-departamento'); // Fecha e o usuário reabre pra ver (ou vc pode atualizar dinâmico)
+        fecharModal('modal-departamento'); 
         alert("P.O.P adicionado com sucesso!");
       });
     };
 
     window.deletarArquivo = function(idDep, idFile) {
       if(confirm("Tem certeza que deseja excluir este P.O.P?")) {
-        remove(ref(db, `departamentos/${idDep}/arquivos/${idFile}`));
+        remove(dbRef(db, `departamentos/${idDep}/arquivos/${idFile}`));
         fecharModal('modal-departamento');
       }
     };
@@ -416,20 +429,17 @@
     };
 
     function renderizarListaAdmin() {
-      // Lista de Departamentos
       const listaDeps = document.getElementById("lista-admin-deps");
       listaDeps.innerHTML = "";
       for (const id in dbDepartamentos) {
         listaDeps.innerHTML += `<li>${dbDepartamentos[id].nome} <button class="action-icon" onclick="deletarDep('${id}')">🗑️</button></li>`;
       }
 
-      // Lista de Usuários
       const listaUsers = document.getElementById("lista-admin-users");
       listaUsers.innerHTML = "";
       for (const id in dbUsuarios) {
         const u = dbUsuarios[id];
         const papel = u.role === 'admin' ? '<span style="color:var(--danger);font-size:0.8rem">ADMIN</span>' : 'COMUM';
-        // Impede de deletar o proprio usuario logado
         const btnDel = id === usuarioLogado.id ? '' : `<button class="action-icon" onclick="deletarUser('${id}')">🗑️</button>`;
         listaUsers.innerHTML += `<li>${id.replace('_', '.')} (${papel}) ${btnDel}</li>`;
       }
@@ -439,14 +449,14 @@
       const nome = document.getElementById("novo-dep-nome").value;
       if(!nome) return;
       const key = nome.toLowerCase().replace(/ /g, '_');
-      set(ref(db, `departamentos/${key}`), { nome: nome }).then(() => {
+      set(dbRef(db, `departamentos/${key}`), { nome: nome }).then(() => {
         document.getElementById("novo-dep-nome").value = "";
       });
     };
 
     window.deletarDep = function(id) {
       if(confirm("Excluir departamento inteiro e todos os seus arquivos?")) {
-        remove(ref(db, `departamentos/${id}`));
+        remove(dbRef(db, `departamentos/${id}`));
       }
     };
 
@@ -458,7 +468,7 @@
       if(!login || !pass) { alert("Preencha login e senha!"); return; }
       
       const userKey = login.replace(/\./g, '_');
-      set(ref(db, `usuarios/${userKey}`), { senha: pass, role: role }).then(() => {
+      set(dbRef(db, `usuarios/${userKey}`), { senha: pass, role: role }).then(() => {
         alert("Usuário criado!");
         document.getElementById("novo-user-login").value = "";
         document.getElementById("novo-user-pass").value = "";
@@ -467,7 +477,7 @@
 
     window.deletarUser = function(id) {
       if(confirm("Excluir acesso deste usuário?")) {
-        remove(ref(db, `usuarios/${id}`));
+        remove(dbRef(db, `usuarios/${id}`));
       }
     };
 
@@ -478,32 +488,87 @@
       document.getElementById(id).style.display = "none";
     };
 
-    window.enviarDemanda = function(metodo) {
+    window.enviarDemanda = async function(metodo) { // Mudado para ASYNC
       const loja = document.getElementById("loja-auditada").value;
       const descricao = document.getElementById("desc-nao-conformidade").value;
-      const pop = document.getElementById("pop-selecionado").value;
       const depNome = dbDepartamentos[idDepartamentoAtual].nome;
+      
+      // Capturando os dados do Select (Nome e o Link oculto)
+      const selectElement = document.getElementById("pop-selecionado");
+      const popNome = selectElement.value;
+      const popLink = selectElement.options[selectElement.selectedIndex].getAttribute('data-link');
+
+      // Foto
+      const inputFoto = document.getElementById("foto-evidencia");
+      const arquivoFoto = inputFoto.files[0];
 
       if (!loja || !descricao) { alert("Preencha a loja e a descrição!"); return; }
 
-      // Salva no BD a auditoria
-      push(ref(db, 'auditorias'), {
-        auditor: usuarioLogado.loginExibicao,
-        departamento: depNome,
-        loja: loja,
-        descricao: descricao,
-        pop_referencia: pop,
-        data: new Date().toISOString()
-      });
+      // Esconder botões e mostrar Loading
+      document.getElementById("botoes-envio").style.display = "none";
+      document.getElementById("loading-msg").style.display = "block";
 
-      const msg = `🚨 *auditoria de processos*\n*Loja:* ${loja}\n*Dep:* ${depNome}\n*Auditor:* ${usuarioLogado.loginExibicao}\n\n*Não Conformidade:*\n${descricao}\n\n*P.O.P de Referência:* ${pop}`;
+      try {
+        let urlDaFoto = "";
 
-      if (metodo === 'whatsapp') {
-        window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
-      } else {
-        window.location.href = `mailto:?subject=Auditoria ${loja} - ${depNome}&body=${encodeURIComponent(msg)}`;
+        // Se houver uma foto, faz o upload para o Firebase Storage
+        if (arquivoFoto) {
+           const nomeUnico = `evidencias/${Date.now()}_${arquivoFoto.name}`;
+           const sRef = storageRef(storage, nomeUnico);
+           const uploadResult = await uploadBytesResumable(sRef, arquivoFoto);
+           urlDaFoto = await getDownloadURL(uploadResult.ref);
+        }
+
+        // Pega a data atual no formato brasileiro (DD/MM/YYYY)
+        const dataAtual = new Date().toLocaleDateString('pt-BR');
+
+        // Salva no Banco de Dados
+        push(dbRef(db, 'auditorias'), {
+          data: dataAtual,
+          auditor: usuarioLogado.loginExibicao,
+          departamento: depNome,
+          loja: loja,
+          descricao: descricao,
+          pop_referencia: popNome,
+          pop_link: popLink || "",
+          foto_evidencia: urlDaFoto || ""
+        });
+
+        // Montando a mensagem perfeita que você pediu
+        let msg = `🚨 *AUDITORIA DE PROCESSOS*\n`;
+        msg += `*Data:* ${dataAtual}\n`;
+        msg += `*Loja:* ${loja}\n`;
+        msg += `*Dep:* ${depNome}\n`;
+        msg += `*Auditor:* ${usuarioLogado.loginExibicao}\n\n`;
+        msg += `*Não Conformidade:*\n${descricao}\n\n`;
+        
+        if (popNome !== "Nenhum") {
+          msg += `*P.O.P de Referência:* ${popNome}\n`;
+          if (popLink) {
+            msg += `*Link do P.O.P:* ${popLink}\n`;
+          }
+        }
+
+        if (urlDaFoto) {
+          msg += `\n📸 *Evidência Fotográfica:*\n${urlDaFoto}`;
+        }
+
+        // Disparo para o App selecionado
+        if (metodo === 'whatsapp') {
+          window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+        } else {
+          window.location.href = `mailto:?subject=Auditoria ${loja} - ${depNome}&body=${encodeURIComponent(msg)}`;
+        }
+
+        fecharModal('modal-departamento');
+      } catch (error) {
+        console.error("Erro no processo:", error);
+        alert("Ocorreu um erro. Verifique sua conexão e se as permissões do Firebase Storage estão corretas.");
+      } finally {
+        // Restaurar botões e esconder loading
+        document.getElementById("botoes-envio").style.display = "flex";
+        document.getElementById("loading-msg").style.display = "none";
       }
-      fecharModal('modal-departamento');
     };
   </script>
 </body>

@@ -137,6 +137,7 @@
 </head>
 <body>
 
+  <!-- ================= TELA DE LOGIN ================= -->
   <div id="tela-login" class="login-container" style="display: flex;">
     <div class="login-box">
       <h2>auditoria de processos internos</h2>
@@ -148,7 +149,9 @@
     </div>
   </div>
 
+  <!-- ================= TELA PRINCIPAL (APP) ================= -->
   <div id="tela-app">
+    <!-- Navbar -->
     <div class="navbar">
       <div class="nav-user">
         <strong id="user-display-name">Usuário</strong>
@@ -160,21 +163,26 @@
       </div>
     </div>
 
+    <!-- Conteúdo -->
     <div class="content">
       <h2 class="section-title">Departamentos</h2>
       <div class="grid-departamentos" id="departamentos-container">
-        </div>
+        <!-- Renderizado via JS -->
+      </div>
     </div>
   </div>
 
+  <!-- ================= MODAL DEPARTAMENTO (AUDITORIA E P.O.P.S) ================= -->
   <div class="modal" id="modal-departamento">
     <div class="modal-content">
       <button class="close-btn" onclick="fecharModal('modal-departamento')">✖</button>
       <h2 id="modal-dep-titulo" style="margin-top: 0; color: var(--primary);">Departamento</h2>
       
+      <!-- Lista de P.O.P.s -->
       <h3 style="font-size: 1.1rem; border-bottom: 1px solid #ccc; padding-bottom: 5px;">Documentos e P.O.P.s</h3>
       <ul class="list-group" id="lista-arquivos"></ul>
       
+      <!-- Área Restrita: Adicionar Arquivo (Só Admin) -->
       <div id="area-add-arquivo" style="display: none; background: #e2e8f0; padding: 10px; border-radius: 6px; margin-top: 10px;">
         <strong>➕ Adicionar P.O.P</strong>
         <input type="text" id="novo-arq-nome" placeholder="Nome do Documento (Ex: P.O.P Caixa)">
@@ -191,9 +199,6 @@
       <label style="font-weight: 600; font-size: 0.9rem; color: var(--text);">Vincular P.O.P:</label>
       <select id="pop-selecionado"></select>
 
-      <label style="font-weight: 600; font-size: 0.9rem; color: var(--text); display: block; margin-top: 5px;">📸 Evidência (Tirar foto no Tablet):</label>
-      <input type="file" id="foto-evidencia" accept="image/*" capture="environment" style="padding: 8px;">
-
       <div id="loading-msg">Processando e abrindo aplicativo... ⏳</div>
 
       <div class="btn-group" id="botoes-envio">
@@ -203,11 +208,13 @@
     </div>
   </div>
 
+  <!-- ================= MODAL PAINEL ADMIN (SÓ PARA ADMINS) ================= -->
   <div class="modal" id="modal-admin">
     <div class="modal-content">
       <button class="close-btn" onclick="fecharModal('modal-admin')">✖</button>
       <h2 style="margin-top: 0; color: var(--primary);">⚙️ Painel do Administrador</h2>
       
+      <!-- Gerenciar Departamentos -->
       <div class="admin-section">
         <h3>Departamentos</h3>
         <ul class="list-group" id="lista-admin-deps" style="margin-bottom: 10px; max-height: 150px; overflow-y: auto;"></ul>
@@ -215,6 +222,7 @@
         <button class="btn btn-primary" style="padding: 8px;" onclick="addDepartamento()">Adicionar Departamento</button>
       </div>
 
+      <!-- Gerenciar Usuários -->
       <div class="admin-section">
         <h3>Usuários do Sistema</h3>
         <ul class="list-group" id="lista-admin-users" style="margin-bottom: 10px; max-height: 150px; overflow-y: auto;"></ul>
@@ -229,6 +237,7 @@
     </div>
   </div>
 
+  <!-- FIREBASE SCRIPTS -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getDatabase, ref as dbRef, set, get, child, onValue, push, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
@@ -379,7 +388,6 @@
       
       document.getElementById("loja-auditada").value = "";
       document.getElementById("desc-nao-conformidade").value = "";
-      document.getElementById("foto-evidencia").value = "";
       
       const lista = document.getElementById("lista-arquivos");
       const selectPop = document.getElementById("pop-selecionado");
@@ -507,10 +515,6 @@
       const popNome = selectElement.value;
       const popLink = selectElement.options[selectElement.selectedIndex].getAttribute('data-link');
 
-      // Verifica se anexou uma foto localmente
-      const inputFoto = document.getElementById("foto-evidencia");
-      const temFoto = inputFoto.files.length > 0;
-
       if (!loja || !descricao) { alert("Preencha a loja e a descrição!"); return; }
 
       document.getElementById("botoes-envio").style.display = "none";
@@ -527,8 +531,7 @@
         loja: loja,
         descricao: descricao,
         pop_referencia: popNome,
-        pop_link: popLink || "",
-        evidencia_anexada: temFoto ? "Sim (Manualmente)" : "Não"
+        pop_link: popLink || ""
       });
 
       // Montando a mensagem perfeita com Data e Links diretos dos POPs
@@ -544,11 +547,6 @@
         if (popLink) {
           msg += `*Link do P.O.P:* ${popLink}\n`;
         }
-      }
-
-      // Se o usuário tirou foto, injeta o lembrete operacional no texto do whats/e-mail
-      if (temFoto) {
-        msg += `\n⚠️ *Aviso ao Auditor:* Clique no clipe de anexo e selecione a foto que você acabou de tirar!`;
       }
 
       // Disparo instantâneo sem peso

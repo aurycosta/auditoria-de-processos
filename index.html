@@ -137,10 +137,9 @@
 </head>
 <body>
 
-  <!-- ================= TELA DE LOGIN ================= -->
   <div id="tela-login" class="login-container" style="display: flex;">
     <div class="login-box">
-      <h2>Auditoria de Processos</h2>
+      <h2>auditoria de processos internos</h2>
       <p>Acesse o sistema</p>
       <input type="text" id="login-user" placeholder="Usuário">
       <input type="password" id="login-pass" placeholder="Senha">
@@ -149,9 +148,7 @@
     </div>
   </div>
 
-  <!-- ================= TELA PRINCIPAL (APP) ================= -->
   <div id="tela-app">
-    <!-- Navbar -->
     <div class="navbar">
       <div class="nav-user">
         <strong id="user-display-name">Usuário</strong>
@@ -163,26 +160,21 @@
       </div>
     </div>
 
-    <!-- Conteúdo -->
     <div class="content">
       <h2 class="section-title">Departamentos</h2>
       <div class="grid-departamentos" id="departamentos-container">
-        <!-- Renderizado via JS -->
-      </div>
+        </div>
     </div>
   </div>
 
-  <!-- ================= MODAL DEPARTAMENTO (AUDITORIA E P.O.P.S) ================= -->
   <div class="modal" id="modal-departamento">
     <div class="modal-content">
       <button class="close-btn" onclick="fecharModal('modal-departamento')">✖</button>
       <h2 id="modal-dep-titulo" style="margin-top: 0; color: var(--primary);">Departamento</h2>
       
-      <!-- Lista de P.O.P.s -->
       <h3 style="font-size: 1.1rem; border-bottom: 1px solid #ccc; padding-bottom: 5px;">Documentos e P.O.P.s</h3>
       <ul class="list-group" id="lista-arquivos"></ul>
       
-      <!-- Área Restrita: Adicionar Arquivo (Só Admin) -->
       <div id="area-add-arquivo" style="display: none; background: #e2e8f0; padding: 10px; border-radius: 6px; margin-top: 10px;">
         <strong>➕ Adicionar P.O.P</strong>
         <input type="text" id="novo-arq-nome" placeholder="Nome do Documento (Ex: P.O.P Caixa)">
@@ -199,11 +191,10 @@
       <label style="font-weight: 600; font-size: 0.9rem; color: var(--text);">Vincular P.O.P:</label>
       <select id="pop-selecionado"></select>
 
-      <label style="font-weight: 600; font-size: 0.9rem; color: var(--text); display: block; margin-top: 5px;">📸 Evidência (Foto opcional):</label>
-      <!-- "capture=environment" faz o tablet abrir a câmera traseira direto, se compatível -->
+      <label style="font-weight: 600; font-size: 0.9rem; color: var(--text); display: block; margin-top: 5px;">📸 Evidência (Tirar foto no Tablet):</label>
       <input type="file" id="foto-evidencia" accept="image/*" capture="environment" style="padding: 8px;">
 
-      <div id="loading-msg">Anexando foto e gerando auditoria. Aguarde... ⏳</div>
+      <div id="loading-msg">Processando e abrindo aplicativo... ⏳</div>
 
       <div class="btn-group" id="botoes-envio">
         <button class="btn" style="background-color: #25D366;" onclick="enviarDemanda('whatsapp')">WhatsApp</button>
@@ -212,13 +203,11 @@
     </div>
   </div>
 
-  <!-- ================= MODAL PAINEL ADMIN (SÓ PARA ADMINS) ================= -->
   <div class="modal" id="modal-admin">
     <div class="modal-content">
       <button class="close-btn" onclick="fecharModal('modal-admin')">✖</button>
       <h2 style="margin-top: 0; color: var(--primary);">⚙️ Painel do Administrador</h2>
       
-      <!-- Gerenciar Departamentos -->
       <div class="admin-section">
         <h3>Departamentos</h3>
         <ul class="list-group" id="lista-admin-deps" style="margin-bottom: 10px; max-height: 150px; overflow-y: auto;"></ul>
@@ -226,7 +215,6 @@
         <button class="btn btn-primary" style="padding: 8px;" onclick="addDepartamento()">Adicionar Departamento</button>
       </div>
 
-      <!-- Gerenciar Usuários -->
       <div class="admin-section">
         <h3>Usuários do Sistema</h3>
         <ul class="list-group" id="lista-admin-users" style="margin-bottom: 10px; max-height: 150px; overflow-y: auto;"></ul>
@@ -241,13 +229,9 @@
     </div>
   </div>
 
-  <!-- FIREBASE SCRIPTS -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    // Banco de Dados
     import { getDatabase, ref as dbRef, set, get, child, onValue, push, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-    // Armazenamento de Arquivos (Fotos)
-    import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDMgocHaQtH07v-aQc4tC4JcV3jNxY3tX0",
@@ -261,7 +245,6 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    const storage = getStorage(app); // Inicializando Storage
 
     // Variáveis Globais de Estado
     let usuarioLogado = null;
@@ -270,7 +253,7 @@
     let idDepartamentoAtual = ""; 
 
     // ==========================================
-    // 1. SISTEMA DE LOGIN E INICIALIZAÇÃO
+    // 1. SISTEMA DE LOGIN E PERSISTÊNCIA
     // ==========================================
     async function inicializarBanco() {
       const dbReference = dbRef(db);
@@ -278,8 +261,29 @@
       if (!snap.exists()) {
         await set(dbRef(db, 'usuarios/au_costa'), { nome: "A. Costa", senha: "admin", role: "admin" });
       }
+      verificarSessaoSalva();
     }
     inicializarBanco();
+
+    function verificarSessaoSalva() {
+      const sessaoLocal = localStorage.getItem("sessao_auditoria");
+      if (sessaoLocal) {
+        try {
+          const dadosSessao = JSON.parse(sessaoLocal);
+          const tempoPassado = Date.now() - dadosSessao.timestamp;
+          const umDiaEmMilissegundos = 24 * 60 * 60 * 1000;
+
+          if (tempoPassado < umDiaEmMilissegundos) {
+            usuarioLogado = dadosSessao.usuario;
+            iniciarInterfaceApp();
+          } else {
+            localStorage.removeItem("sessao_auditoria");
+          }
+        } catch (e) {
+          console.error("Erro ao ler sessão local", e);
+        }
+      }
+    }
 
     window.fazerLogin = async function() {
       const user = document.getElementById("login-user").value.trim().toLowerCase();
@@ -299,6 +303,12 @@
         usuarioLogado.id = userKey;
         usuarioLogado.loginExibicao = user;
         
+        const estruturaSessao = {
+          usuario: usuarioLogado,
+          timestamp: Date.now()
+        };
+        localStorage.setItem("sessao_auditoria", JSON.stringify(estruturaSessao));
+        
         iniciarInterfaceApp();
       } else {
         msg.innerText = "Usuário ou senha incorretos!";
@@ -307,6 +317,8 @@
 
     window.sair = function() {
       usuarioLogado = null;
+      localStorage.removeItem("sessao_auditoria");
+      
       document.getElementById("tela-app").style.display = "none";
       document.getElementById("tela-login").style.display = "flex";
       document.getElementById("login-pass").value = "";
@@ -365,7 +377,6 @@
       document.getElementById("modal-dep-titulo").innerText = dep.nome;
       document.getElementById("modal-departamento").style.display = "flex";
       
-      // Limpar campos de formulário e fotos antigas ao abrir
       document.getElementById("loja-auditada").value = "";
       document.getElementById("desc-nao-conformidade").value = "";
       document.getElementById("foto-evidencia").value = "";
@@ -387,11 +398,10 @@
           li.innerHTML = html;
           lista.appendChild(li);
 
-          // Criando a opção com o Link guardado nela (data-link)
           const option = document.createElement("option");
           option.value = arq.nome;
           option.innerText = arq.nome;
-          option.setAttribute('data-link', arq.link); // Salvando o link!
+          option.setAttribute('data-link', arq.link); 
           selectPop.appendChild(option);
         }
       } else {
@@ -488,87 +498,70 @@
       document.getElementById(id).style.display = "none";
     };
 
-    window.enviarDemanda = async function(metodo) { // Mudado para ASYNC
+    window.enviarDemanda = function(metodo) { 
       const loja = document.getElementById("loja-auditada").value;
       const descricao = document.getElementById("desc-nao-conformidade").value;
       const depNome = dbDepartamentos[idDepartamentoAtual].nome;
       
-      // Capturando os dados do Select (Nome e o Link oculto)
       const selectElement = document.getElementById("pop-selecionado");
       const popNome = selectElement.value;
       const popLink = selectElement.options[selectElement.selectedIndex].getAttribute('data-link');
 
-      // Foto
+      // Verifica se anexou uma foto localmente
       const inputFoto = document.getElementById("foto-evidencia");
-      const arquivoFoto = inputFoto.files[0];
+      const temFoto = inputFoto.files.length > 0;
 
       if (!loja || !descricao) { alert("Preencha a loja e a descrição!"); return; }
 
-      // Esconder botões e mostrar Loading
       document.getElementById("botoes-envio").style.display = "none";
       document.getElementById("loading-msg").style.display = "block";
 
-      try {
-        let urlDaFoto = "";
+      // Captura da data no formato brasileiro (DD/MM/YYYY)
+      const dataAtual = new Date().toLocaleDateString('pt-BR');
 
-        // Se houver uma foto, faz o upload para o Firebase Storage
-        if (arquivoFoto) {
-           const nomeUnico = `evidencias/${Date.now()}_${arquivoFoto.name}`;
-           const sRef = storageRef(storage, nomeUnico);
-           const uploadResult = await uploadBytesResumable(sRef, arquivoFoto);
-           urlDaFoto = await getDownloadURL(uploadResult.ref);
+      // Salva no Banco de Dados Realtime o registro de texto padrão (Leve)
+      push(dbRef(db, 'auditorias'), {
+        data: dataAtual,
+        auditor: usuarioLogado.loginExibicao,
+        departamento: depNome,
+        loja: loja,
+        descricao: descricao,
+        pop_referencia: popNome,
+        pop_link: popLink || "",
+        evidencia_anexada: temFoto ? "Sim (Manualmente)" : "Não"
+      });
+
+      // Montando a mensagem perfeita com Data e Links diretos dos POPs
+      let msg = `🚨 *AUDITORIA DE PROCESSOS*\n`;
+      msg += `*Data:* ${dataAtual}\n`;
+      msg += `*Loja:* ${loja}\n`;
+      msg += `*Dep:* ${depNome}\n`;
+      msg += `*Auditor:* ${usuarioLogado.loginExibicao}\n\n`;
+      msg += `*Não Conformidade:*\n${descricao}\n\n`;
+      
+      if (popNome !== "Nenhum") {
+        msg += `*P.O.P de Referência:* ${popNome}\n`;
+        if (popLink) {
+          msg += `*Link do P.O.P:* ${popLink}\n`;
         }
-
-        // Pega a data atual no formato brasileiro (DD/MM/YYYY)
-        const dataAtual = new Date().toLocaleDateString('pt-BR');
-
-        // Salva no Banco de Dados
-        push(dbRef(db, 'auditorias'), {
-          data: dataAtual,
-          auditor: usuarioLogado.loginExibicao,
-          departamento: depNome,
-          loja: loja,
-          descricao: descricao,
-          pop_referencia: popNome,
-          pop_link: popLink || "",
-          foto_evidencia: urlDaFoto || ""
-        });
-
-        // Montando a mensagem perfeita que você pediu
-        let msg = `🚨 *AUDITORIA DE PROCESSOS*\n`;
-        msg += `*Data:* ${dataAtual}\n`;
-        msg += `*Loja:* ${loja}\n`;
-        msg += `*Dep:* ${depNome}\n`;
-        msg += `*Auditor:* ${usuarioLogado.loginExibicao}\n\n`;
-        msg += `*Não Conformidade:*\n${descricao}\n\n`;
-        
-        if (popNome !== "Nenhum") {
-          msg += `*P.O.P de Referência:* ${popNome}\n`;
-          if (popLink) {
-            msg += `*Link do P.O.P:* ${popLink}\n`;
-          }
-        }
-
-        if (urlDaFoto) {
-          msg += `\n📸 *Evidência Fotográfica:*\n${urlDaFoto}`;
-        }
-
-        // Disparo para o App selecionado
-        if (metodo === 'whatsapp') {
-          window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
-        } else {
-          window.location.href = `mailto:?subject=Auditoria ${loja} - ${depNome}&body=${encodeURIComponent(msg)}`;
-        }
-
-        fecharModal('modal-departamento');
-      } catch (error) {
-        console.error("Erro no processo:", error);
-        alert("Ocorreu um erro. Verifique sua conexão e se as permissões do Firebase Storage estão corretas.");
-      } finally {
-        // Restaurar botões e esconder loading
-        document.getElementById("botoes-envio").style.display = "flex";
-        document.getElementById("loading-msg").style.display = "none";
       }
+
+      // Se o usuário tirou foto, injeta o lembrete operacional no texto do whats/e-mail
+      if (temFoto) {
+        msg += `\n⚠️ *Aviso ao Auditor:* Clique no clipe de anexo e selecione a foto que você acabou de tirar!`;
+      }
+
+      // Disparo instantâneo sem peso
+      if (metodo === 'whatsapp') {
+        window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+      } else {
+        window.location.href = `mailto:?subject=Auditoria ${loja} - ${depNome}&body=${encodeURIComponent(msg)}`;
+      }
+
+      // Restaura o modal de forma limpa
+      document.getElementById("botoes-envio").style.display = "flex";
+      document.getElementById("loading-msg").style.display = "none";
+      fecharModal('modal-departamento');
     };
   </script>
 </body>
